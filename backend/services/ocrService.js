@@ -14,24 +14,40 @@ class OCRService {
       console.log('✅ Google Vision API クライアント初期化完了');
     } catch (error) {
       console.error('❌ Google Vision API 初期化エラー:', error);
-      // 開発環境用のモックモードフラグ
-      this.mockMode = !process.env.GOOGLE_APPLICATION_CREDENTIALS;
-      if (this.mockMode) {
-        console.warn('⚠️ モックモードで動作します（Google Vision API未設定）');
-      }
+      // 開発環境用のモックモードフラグ  
+      this.mockMode = true;  // 一時的にモックモードを有効化
+      console.warn('⚠️ 緊急モックモードで動作します（デバッグ用）');
     }
   }
 
   async processImage(imagePath) {
     try {
       if (this.mockMode) {
+        console.log('⚠️ モックモードで動作中');
         return this.mockOCRResponse();
       }
 
       console.log(`🔍 OCR処理開始: ${imagePath}`);
+      
+      // ファイル存在確認
+      const fs = require('fs');
+      if (!fs.existsSync(imagePath)) {
+        throw new Error(`画像ファイルが見つかりません: ${imagePath}`);
+      }
+      
+      console.log(`📁 ファイル確認済み: ${imagePath} (${fs.statSync(imagePath).size} bytes)`);
 
-      // Google Vision API でテキスト検出
-      const [result] = await this.client.textDetection(imagePath);
+      // Google Vision API でテキスト検出（タイムアウト付き）
+      console.log('🔍 Google Vision API 呼び出し中...');
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Google Vision API タイムアウト (30秒)')), 30000)
+      );
+      
+      const ocrPromise = this.client.textDetection(imagePath);
+      console.log('⏰ タイムアウト付きで API 実行中...');
+      const [result] = await Promise.race([ocrPromise, timeoutPromise]);
+      console.log('✅ Google Vision API 呼び出し完了');
+      
       const detections = result.textAnnotations;
 
       if (!detections || detections.length === 0) {

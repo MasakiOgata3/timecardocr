@@ -5,9 +5,11 @@ const fs = require('fs').promises;
 
 class OCRController {
   async processImage(req, res) {
+    console.log('🚀 OCR processImage メソッド開始');
     try {
       // ファイルが存在するかチェック
       if (!req.file) {
+        console.error('❌ ファイルがアップロードされていません');
         return res.status(400).json({
           error: 'ファイルがアップロードされていません。'
         });
@@ -15,6 +17,7 @@ class OCRController {
 
       const filePath = req.file.path;
       console.log(`📁 ファイル受信: ${req.file.originalname} (${req.file.size} bytes)`);
+      console.log(`📁 ファイルパス: ${filePath}`);
 
       // 画像前処理
       console.log('🖼️ 画像を前処理中...');
@@ -23,21 +26,30 @@ class OCRController {
         processedImagePath = await imageProcessor.preprocessImage(filePath);
         console.log('✅ 画像前処理完了:', processedImagePath);
       } catch (error) {
-        console.error('❌ 画像前処理エラー:', error);
+        console.error('❌ 画像前処理エラー:', error.message);
         // 前処理に失敗した場合は元のファイルを使用
         processedImagePath = filePath;
+        console.log('⚠️ 元のファイルを使用:', processedImagePath);
       }
 
       // OCR処理
       console.log('🔍 OCR処理を開始...');
+      console.log('🔍 使用する画像ファイル:', processedImagePath);
+      
+      console.log('⚡ ocrService.processImage を呼び出し中...');
       const ocrResult = await ocrService.processImage(processedImagePath);
+      console.log('✅ OCR処理完了. テキスト長:', ocrResult.text ? ocrResult.text.length : 0);
+      console.log('📊 OCR結果プレビュー:', ocrResult.text ? ocrResult.text.substring(0, 100) + '...' : 'テキストなし');
 
       // テキスト解析・構造化
       console.log('📋 テキストを解析中...');
       const structuredData = textParser.parseTimecardText(ocrResult.text);
+      console.log('✅ テキスト解析完了:', structuredData);
 
-      // 一時ファイルクリーンアップ
-      await this.cleanupFiles([filePath, processedImagePath]);
+      // 一時ファイルクリーンアップ（レスポンス後に実行）
+      setTimeout(() => {
+        this.cleanupFiles([filePath, processedImagePath]).catch(console.error);
+      }, 1000);
 
       // レスポンス
       const response = {
@@ -48,11 +60,14 @@ class OCRController {
         processedAt: new Date().toISOString()
       };
 
-      console.log('✅ OCR処理完了');
+      console.log('✅ OCR処理完了、レスポンス送信中...');
+      console.log('📤 レスポンスデータ:', JSON.stringify(response, null, 2));
       res.json(response);
+      console.log('📤 レスポンス送信完了');
 
     } catch (error) {
       console.error('❌ OCR処理エラー:', error);
+      console.error('❌ エラースタック:', error.stack);
 
       // ファイルクリーンアップ（エラー時）
       if (req.file) {
