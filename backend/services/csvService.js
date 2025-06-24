@@ -1,54 +1,42 @@
-const createCsvWriter = require('csv-writer').createObjectCsvWriter;
-const path = require('path');
-const fs = require('fs').promises;
-
 class CSVService {
   async generateCSV(data) {
     try {
       console.log('📄 CSV生成処理開始...');
 
-      // 一時ファイルパス
-      const tempDir = path.join(__dirname, '../../uploads');
-      const tempFilePath = path.join(tempDir, `temp_${Date.now()}.csv`);
+      // CSVヘッダー
+      const headers = [
+        '社員番号',
+        '氏名', 
+        '部署',
+        '勤務日',
+        '出勤時刻',
+        '退勤時刻',
+        '休憩時間（分）',
+        '実働時間',
+        '作成日時'
+      ];
 
-      // CSV ヘッダー定義
-      const csvWriter = createCsvWriter({
-        path: tempFilePath,
-        header: [
-          { id: 'employeeId', title: '社員番号' },
-          { id: 'employeeName', title: '氏名' },
-          { id: 'department', title: '部署' },
-          { id: 'workDate', title: '勤務日' },
-          { id: 'startTime', title: '出勤時刻' },
-          { id: 'endTime', title: '退勤時刻' },
-          { id: 'breakTime', title: '休憩時間（分）' },
-          { id: 'workHours', title: '実働時間' },
-          { id: 'createdAt', title: '作成日時' }
-        ],
-        encoding: 'utf8'
-      });
+      // CSVデータ行
+      const row = [
+        data.employeeId || '',
+        data.employeeName || '',
+        data.department || '',
+        data.workDate || '',
+        data.startTime || '',
+        data.endTime || '',
+        data.breakTime || '',
+        data.workHours || '',
+        new Date().toLocaleString('ja-JP')
+      ];
 
-      // データ準備
-      const csvData = [{
-        employeeId: data.employeeId || '',
-        employeeName: data.employeeName || '',
-        department: data.department || '',
-        workDate: data.workDate || '',
-        startTime: data.startTime || '',
-        endTime: data.endTime || '',
-        breakTime: data.breakTime || '',
-        workHours: data.workHours || '',
-        createdAt: new Date().toLocaleString('ja-JP')
-      }];
+      // CSV文字列生成
+      const csvContent = [
+        headers.join(','),
+        row.map(field => `"${field}"`).join(',')
+      ].join('\n');
 
-      // CSV書き込み
-      await csvWriter.writeRecords(csvData);
-
-      // ファイル読み込み
-      const csvBuffer = await fs.readFile(tempFilePath);
-
-      // 一時ファイル削除
-      await fs.unlink(tempFilePath);
+      // UTF-8 BOM付きでエンコード
+      const csvBuffer = Buffer.from('\uFEFF' + csvContent, 'utf8');
 
       console.log('✅ CSV生成完了');
       return csvBuffer;
@@ -64,41 +52,40 @@ class CSVService {
     try {
       console.log(`📄 複数データCSV生成処理開始 (${dataArray.length}件)...`);
 
-      const tempDir = path.join(__dirname, '../../uploads');
-      const tempFilePath = path.join(tempDir, `temp_multiple_${Date.now()}.csv`);
+      // CSVヘッダー
+      const headers = [
+        '社員番号',
+        '氏名', 
+        '部署',
+        '勤務日',
+        '出勤時刻',
+        '退勤時刻',
+        '休憩時間（分）',
+        '実働時間',
+        '作成日時'
+      ];
 
-      const csvWriter = createCsvWriter({
-        path: tempFilePath,
-        header: [
-          { id: 'employeeId', title: '社員番号' },
-          { id: 'employeeName', title: '氏名' },
-          { id: 'department', title: '部署' },
-          { id: 'workDate', title: '勤務日' },
-          { id: 'startTime', title: '出勤時刻' },
-          { id: 'endTime', title: '退勤時刻' },
-          { id: 'breakTime', title: '休憩時間（分）' },
-          { id: 'workHours', title: '実働時間' },
-          { id: 'createdAt', title: '作成日時' }
-        ],
-        encoding: 'utf8'
-      });
+      // CSVデータ行
+      const rows = dataArray.map(data => [
+        data.employeeId || '',
+        data.employeeName || '',
+        data.department || '',
+        data.workDate || '',
+        data.startTime || '',
+        data.endTime || '',
+        data.breakTime || '',
+        data.workHours || '',
+        new Date().toLocaleString('ja-JP')
+      ]);
 
-      // データ変換
-      const csvData = dataArray.map(data => ({
-        employeeId: data.employeeId || '',
-        employeeName: data.employeeName || '',
-        department: data.department || '',
-        workDate: data.workDate || '',
-        startTime: data.startTime || '',
-        endTime: data.endTime || '',
-        breakTime: data.breakTime || '',
-        workHours: data.workHours || '',
-        createdAt: new Date().toLocaleString('ja-JP')
-      }));
+      // CSV文字列生成
+      const csvLines = [
+        headers.join(','),
+        ...rows.map(row => row.map(field => `"${field}"`).join(','))
+      ];
 
-      await csvWriter.writeRecords(csvData);
-      const csvBuffer = await fs.readFile(tempFilePath);
-      await fs.unlink(tempFilePath);
+      const csvContent = csvLines.join('\n');
+      const csvBuffer = Buffer.from('\uFEFF' + csvContent, 'utf8');
 
       console.log('✅ 複数データCSV生成完了');
       return csvBuffer;
