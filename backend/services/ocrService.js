@@ -35,7 +35,13 @@ class OCRService {
       const detections = result.textAnnotations;
 
       if (!detections || detections.length === 0) {
-        throw new Error('画像からテキストを検出できませんでした。');
+        console.warn('⚠️ テキストが検出されませんでした。空の結果を返します。');
+        return {
+          text: '',
+          confidence: 0,
+          detections: [],
+          timestamp: new Date().toISOString()
+        };
       }
 
       // 全体のテキスト（最初の要素が全文）

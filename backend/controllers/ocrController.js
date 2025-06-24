@@ -18,7 +18,15 @@ class OCRController {
 
       // 画像前処理
       console.log('🖼️ 画像を前処理中...');
-      const processedImagePath = await imageProcessor.preprocessImage(filePath);
+      let processedImagePath;
+      try {
+        processedImagePath = await imageProcessor.preprocessImage(filePath);
+        console.log('✅ 画像前処理完了:', processedImagePath);
+      } catch (error) {
+        console.error('❌ 画像前処理エラー:', error);
+        // 前処理に失敗した場合は元のファイルを使用
+        processedImagePath = filePath;
+      }
 
       // OCR処理
       console.log('🔍 OCR処理を開始...');

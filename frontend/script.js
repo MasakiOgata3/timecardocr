@@ -121,7 +121,26 @@ class TimecardOCR {
         } catch (error) {
             console.error('OCR処理エラー:', error);
             this.hideProgress();
-            this.showError('OCR処理中にエラーが発生しました。もう一度お試しください。');
+            
+            // エラーの詳細を確認して適切なメッセージを表示
+            if (error.response) {
+                const status = error.response.status;
+                const errorData = error.response.data;
+                
+                if (status === 400) {
+                    this.showError(`入力エラー: ${errorData.error || 'ファイル形式を確認してください。'}`);
+                } else if (status === 413) {
+                    this.showError('ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。');
+                } else if (status === 500) {
+                    this.showError(`サーバーエラー: ${errorData.error || 'しばらく待ってから再試行してください。'}`);
+                } else {
+                    this.showError(`エラー (${status}): ${errorData.error || 'もう一度お試しください。'}`);
+                }
+            } else if (error.code === 'NETWORK_ERROR') {
+                this.showError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+            } else {
+                this.showError('OCR処理中にエラーが発生しました。もう一度お試しください。');
+            }
         }
     }
 
