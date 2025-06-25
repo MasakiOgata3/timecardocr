@@ -6,7 +6,29 @@ class TimecardOCR {
         this.currentFile = null;
         this.ocrData = null;
         
+        // 初期状態を強制設定
+        this.resetUI();
         this.initializeEventListeners();
+    }
+
+    // UI初期状態リセット
+    resetUI() {
+        // 結果セクションを強制的に非表示
+        const resultSection = document.getElementById('resultSection');
+        const downloadSection = document.getElementById('downloadSection');
+        const progressSection = document.getElementById('progressSection');
+        
+        if (resultSection) {
+            resultSection.style.display = 'none';
+            resultSection.classList.remove('fade-in');
+        }
+        if (downloadSection) {
+            downloadSection.style.display = 'none';
+            downloadSection.classList.remove('fade-in');
+        }
+        if (progressSection) {
+            progressSection.style.display = 'none';
+        }
     }
 
     // イベントリスナーの初期化
@@ -96,28 +118,33 @@ class TimecardOCR {
             this.updateProgress(30, 'OCR処理を開始中...');
 
             // API呼び出し
-            const response = await axios.post(`${this.apiBaseUrl}/ocr`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                },
-                onUploadProgress: (progressEvent) => {
-                    const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    this.updateProgress(30 + (progress * 0.3), 'ファイルをアップロード中...');
-                }
+            const response = await fetch(`${this.apiBaseUrl}/ocr`, {
+                method: 'POST',
+                body: formData
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
 
             this.updateProgress(80, 'OCR結果を処理中...');
 
             // 結果処理
-            this.ocrData = response.data;
-            this.displayResults();
-            
-            this.updateProgress(100, '処理完了！');
-            
-            setTimeout(() => {
-                this.hideProgress();
-                this.showResults();
-            }, 1000);
+            if (data && data.success) {
+                this.ocrData = data;
+                this.displayResults();
+                
+                this.updateProgress(100, '処理完了！');
+                
+                setTimeout(() => {
+                    this.hideProgress();
+                    this.showResults();
+                }, 1000);
+            } else {
+                throw new Error('OCR処理に失敗しました。');
+            }
 
         } catch (error) {
             console.error('OCR処理エラー:', error);
@@ -200,7 +227,9 @@ class TimecardOCR {
         reader.readAsDataURL(this.currentFile);
 
         // OCR結果表示
-        ocrResult.value = this.ocrData.rawText || '';
+        if (ocrResult) {
+            ocrResult.value = this.ocrData.rawText || '';
+        }
 
         // フォームにデータ設定
         this.populateForm();
@@ -257,10 +286,18 @@ class TimecardOCR {
 
     // 結果セクション表示
     showResults() {
-        document.getElementById('resultSection').style.display = 'block';
-        document.getElementById('downloadSection').style.display = 'block';
-        document.getElementById('resultSection').classList.add('fade-in');
-        document.getElementById('downloadSection').classList.add('fade-in');
+        const resultSection = document.getElementById('resultSection');
+        const downloadSection = document.getElementById('downloadSection');
+        
+        if (resultSection) {
+            resultSection.style.display = 'block';
+            resultSection.classList.add('fade-in');
+        }
+        
+        if (downloadSection) {
+            downloadSection.style.display = 'block';
+            downloadSection.classList.add('fade-in');
+        }
     }
 
     // ファイルダウンロード
@@ -268,11 +305,20 @@ class TimecardOCR {
         try {
             const formData = this.getFormData();
             
-            const response = await axios.post(`${this.apiBaseUrl}/export/${format}`, formData, {
-                responseType: 'blob'
+            const response = await fetch(`${this.apiBaseUrl}/export/${format}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
             });
 
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
             
