@@ -3,15 +3,27 @@ const vision = require('@google-cloud/vision');
 class OCRService {
   constructor() {
     // Google Vision API クライアント初期化
-    // 本番環境では環境変数でキーファイルパスを設定
     try {
-      this.client = new vision.ImageAnnotatorClient({
-        keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-      });
-      console.log('✅ Google Vision API クライアント初期化完了');
+      // Renderなどのクラウド環境では環境変数からJSON認証情報を読み込み
+      if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+        const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+        this.client = new vision.ImageAnnotatorClient({
+          credentials: credentials,
+          projectId: credentials.project_id
+        });
+        console.log('✅ Google Vision API クライアント初期化完了（環境変数から）');
+      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        // ローカル環境ではファイルパスから読み込み
+        this.client = new vision.ImageAnnotatorClient({
+          keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+        });
+        console.log('✅ Google Vision API クライアント初期化完了（ファイルから）');
+      } else {
+        throw new Error('Google Vision API認証情報が設定されていません');
+      }
       this.mockMode = false;
     } catch (error) {
-      console.error('❌ Google Vision API 初期化エラー:', error);
+      console.error('❌ Google Vision API 初期化エラー:', error.message);
       this.mockMode = true;
       console.warn('⚠️ モックモードで動作します（Google Vision API無効）');
     }
