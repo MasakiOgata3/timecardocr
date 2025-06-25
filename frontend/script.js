@@ -33,11 +33,12 @@ class TimecardOCR {
         // フォーム変更時の計算
         const startTime = document.getElementById('startTime');
         const endTime = document.getElementById('endTime');
-        const breakTime = document.getElementById('breakTime');
         
-        [startTime, endTime, breakTime].forEach(element => {
-            element.addEventListener('change', () => this.calculateWorkHours());
-        });
+        if (startTime && endTime) {
+            [startTime, endTime].forEach(element => {
+                element.addEventListener('change', () => this.calculateWorkHours());
+            });
+        }
     }
 
     // ファイル選択処理
@@ -136,10 +137,12 @@ class TimecardOCR {
                 } else {
                     this.showError(`エラー (${status}): ${errorData.error || 'もう一度お試しください。'}`);
                 }
-            } else if (error.code === 'NETWORK_ERROR') {
-                this.showError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+            } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK') {
+                this.showError('ネットワークエラーが発生しました。サーバーが起動していることを確認してください。');
+            } else if (error.message.includes('Network Error') || error.message.includes('fetch')) {
+                this.showError('サーバーに接続できません。バックエンドサーバー (http://localhost:3000) が起動していることを確認してください。');
             } else {
-                this.showError('OCR処理中にエラーが発生しました。もう一度お試しください。');
+                this.showError(`OCR処理中にエラーが発生しました: ${error.message || 'もう一度お試しください。'}`);
             }
         }
     }
@@ -209,22 +212,30 @@ class TimecardOCR {
 
         const data = this.ocrData.structured;
         
-        document.getElementById('employeeId').value = data.employeeId || '';
+        // 整理された文字起こし形式を表示
+        if (data.formattedText) {
+            document.getElementById('formattedText').value = data.formattedText;
+        }
+        
+        // 従来形式（参考用）
         document.getElementById('employeeName').value = data.employeeName || '';
-        document.getElementById('workDate').value = data.workDate || '';
         document.getElementById('department').value = data.department || '';
         document.getElementById('startTime').value = data.startTime || '';
         document.getElementById('endTime').value = data.endTime || '';
-        document.getElementById('breakTime').value = data.breakTime || '60';
 
         this.calculateWorkHours();
     }
 
     // 実働時間計算
     calculateWorkHours() {
-        const startTime = document.getElementById('startTime').value;
-        const endTime = document.getElementById('endTime').value;
-        const breakTime = parseInt(document.getElementById('breakTime').value) || 0;
+        const startTimeEl = document.getElementById('startTime');
+        const endTimeEl = document.getElementById('endTime');
+        
+        if (!startTimeEl || !endTimeEl) return; // 要素が存在しない場合は処理をスキップ
+        
+        const startTime = startTimeEl.value;
+        const endTime = endTimeEl.value;
+        const breakTime = 60; // デフォルト60分
 
         if (startTime && endTime) {
             const start = new Date(`2000-01-01T${startTime}`);
@@ -238,9 +249,7 @@ class TimecardOCR {
                 if (workMinutes > 0) {
                     const hours = Math.floor(workMinutes / 60);
                     const minutes = workMinutes % 60;
-                    document.getElementById('workHours').value = `${hours}時間${minutes}分`;
-                } else {
-                    document.getElementById('workHours').value = '0時間0分';
+                    console.log(`実働時間: ${hours}時間${minutes}分`);
                 }
             }
         }
@@ -287,14 +296,16 @@ class TimecardOCR {
     // フォームデータ取得
     getFormData() {
         return {
-            employeeId: document.getElementById('employeeId').value,
+            formattedText: document.getElementById('formattedText').value,
             employeeName: document.getElementById('employeeName').value,
-            workDate: document.getElementById('workDate').value,
             department: document.getElementById('department').value,
             startTime: document.getElementById('startTime').value,
             endTime: document.getElementById('endTime').value,
-            breakTime: document.getElementById('breakTime').value,
-            workHours: document.getElementById('workHours').value
+            // レガシーフィールド（互換性のため）
+            employeeId: '',
+            workDate: '',
+            breakTime: '60',
+            workHours: ''
         };
     }
 

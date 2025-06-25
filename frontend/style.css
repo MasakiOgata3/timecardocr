@@ -1,5 +1,12 @@
 /* カスタムスタイル */
 
+/* 等幅フォント（表示用） */
+#formattedText, #ocrResult {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
 /* アップロードエリア */
 .upload-area {
     border: 2px dashed #007bff;
