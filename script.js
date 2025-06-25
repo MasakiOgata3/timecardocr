@@ -2,7 +2,7 @@
 
 class TimecardOCR {
     constructor() {
-        this.apiBaseUrl = 'https://timecardocr-production-2281.up.railway.app/api';
+        this.apiBaseUrl = 'https://timecardocr.onrender.com/api';
         this.currentFile = null;
         this.ocrData = null;
         
