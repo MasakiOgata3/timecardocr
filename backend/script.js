@@ -2,7 +2,7 @@
 
 class TimecardOCR {
     constructor() {
-        this.apiBaseUrl = 'https://your-backend-url.vercel.app/api';
+        this.apiBaseUrl = 'https://timecardocr-production-2281.up.railway.app/api';
         this.currentFile = null;
         this.ocrData = null;
         
