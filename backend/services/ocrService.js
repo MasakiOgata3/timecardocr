@@ -6,17 +6,14 @@ class OCRService {
     // 本番環境では環境変数でキーファイルパスを設定
     try {
       this.client = new vision.ImageAnnotatorClient({
-        // キーファイルのパスまたは認証情報
         keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-        // または、サービスアカウントキーを直接指定
-        // credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS)
       });
       console.log('✅ Google Vision API クライアント初期化完了');
+      this.mockMode = false;
     } catch (error) {
       console.error('❌ Google Vision API 初期化エラー:', error);
-      // 開発環境用のモックモードフラグ  
-      this.mockMode = true;  // 一時的にモックモードを有効化
-      console.warn('⚠️ 緊急モックモードで動作します（デバッグ用）');
+      this.mockMode = true;
+      console.warn('⚠️ モックモードで動作します（Google Vision API無効）');
     }
   }
 

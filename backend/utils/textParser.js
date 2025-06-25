@@ -37,6 +37,10 @@ class TextParser {
       this.extractBreakTime(lines, result);
       this.extractRemarks(lines, result);
 
+      // 整理された文字起こし形式を生成
+      const formattedText = this.generateFormattedText(rawText, result);
+      result.formattedText = formattedText;
+
       console.log('✅ テキスト解析完了:', result);
       return result;
 
@@ -83,7 +87,21 @@ class TextParser {
       /Name[\s:：]*([A-Za-zぁ-ゟ一-龯ァ-ヾ\s]+)/i
     ];
 
-    for (const line of lines) {
+    // 氏名ラベルの次の行をチェック
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // 氏名ラベルを発見した場合、次の行をチェック
+      if (/^(?:氏名|名前|社員名|職員名)$/.test(line.trim()) && i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        if (/^[ぁ-ゟ一-龯ァ-ヾ\s]{2,20}$/.test(nextLine)) {
+          result.employeeName = nextLine;
+          console.log(`👤 氏名検出（次行パターン）: ${result.employeeName}`);
+          return;
+        }
+      }
+      
+      // 通常のパターンマッチング
       for (const pattern of patterns) {
         const match = line.match(pattern);
         if (match && match[1]) {
@@ -125,10 +143,23 @@ class TextParser {
       /(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})/,
       /(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})/,
       /(\d{4}年\d{1,2}月\d{1,2}日)/,
+      /R(\d+)年(\d+)月分?/, // 令和年月形式
+      /令和(\d+)年(\d+)月分?/,
       /Date[\s:：]*(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})/i
     ];
 
     for (const line of lines) {
+      // 令和年月の特別処理
+      const reiwaMatch = line.match(/R(\d+)年(\d+)月分?/);
+      if (reiwaMatch) {
+        const reiwaYear = parseInt(reiwaMatch[1]);
+        const month = reiwaMatch[2].padStart(2, '0');
+        const westernYear = 2018 + reiwaYear; // 令和1年 = 2019年
+        result.workDate = `${westernYear}-${month}`;
+        console.log(`📅 勤務年月検出（令和）: ${result.workDate}`);
+        return;
+      }
+      
       for (const pattern of patterns) {
         const match = line.match(pattern);
         if (match && match[1]) {
@@ -345,6 +376,272 @@ class TextParser {
     if (/\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2}/.test(rawText)) score += 10;
 
     return { score, issues };
+  }
+
+  // 整理された文字起こし形式を生成（Gemini風）
+  generateFormattedText(rawText, parsedData) {
+    const lines = rawText.split('\n').map(line => line.trim()).filter(line => line);
+    
+    let formatted = '';
+    
+    // タイトル
+    formatted += 'タイムカード\n';
+    if (parsedData.workDate) {
+      formatted += `${parsedData.workDate}分\n`;
+    } else {
+      formatted += '前半　月分\n';
+    }
+    formatted += 'TIME CARD\n\n';
+    
+    // 基本情報
+    if (parsedData.employeeName) {
+      formatted += `氏名\n${parsedData.employeeName}\n\n`;
+    }
+    if (parsedData.department) {
+      formatted += `所属\n${parsedData.department}\n\n`;
+    }
+    
+    // ヘッダー行
+    formatted += 'イン　　アウト　イン　　アウト　イン　　アウト\n\n';
+    
+    // 勤務時間データを抽出してフォーマット
+    const timeEntries = this.extractTimeEntriesForTable(lines);
+    timeEntries.forEach(entry => {
+      formatted += entry + '\n';
+    });
+    
+    return formatted;
+  }
+  
+  // 勤務時間エントリを抽出
+  extractTimeEntries(lines) {
+    const timeEntries = [];
+    const timePattern = /^(\d{1,2}):(\d{2})$/;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (timePattern.test(line)) {
+        // 時刻を発見した場合、前後の文脈から出勤/退勤を判定
+        const prevLine = i > 0 ? lines[i - 1] : '';
+        const nextLine = i < lines.length - 1 ? lines[i + 1] : '';
+        
+        if (prevLine === 'イン' || nextLine === 'アウト') {
+          // 出勤時刻
+          if (timeEntries.length === 0 || timeEntries[timeEntries.length - 1].out) {
+            timeEntries.push({ in: line, out: '' });
+          } else {
+            timeEntries[timeEntries.length - 1].in = line;
+          }
+        } else if (prevLine === 'アウト' || this.isLikelyEndTime(line)) {
+          // 退勤時刻
+          if (timeEntries.length > 0 && !timeEntries[timeEntries.length - 1].out) {
+            timeEntries[timeEntries.length - 1].out = line;
+          } else {
+            timeEntries.push({ in: '', out: line });
+          }
+        }
+      }
+    }
+    
+    return timeEntries;
+  }
+  
+  // 時刻データかどうかを判定
+  isTimeData(line) {
+    return /^\d{1,2}:\d{2}$/.test(line) || 
+           ['イン', 'アウト', '出社', '帰り'].includes(line);
+  }
+  
+  // 基本情報かどうかを判定
+  isBasicInfo(line) {
+    return ['氏名', '名前', '所属', '社員ID', 'タイムカード', 'TIME CARD'].some(keyword => 
+      line.includes(keyword)
+    ) || /^[ぁ-ゟ一-龯ァ-ヾ]{2,10}$/.test(line);
+  }
+  
+  // 退勤時刻らしいかどうかを判定
+  isLikelyEndTime(time) {
+    const [hour] = time.split(':').map(Number);
+    return hour >= 17; // 17時以降は退勤時刻の可能性が高い
+  }
+  
+  // 勤務時間表を抽出（空白位置を保持）
+  extractTimeTable(lines) {
+    const tableRows = [];
+    let isInTable = false;
+    let tableStartIndex = -1;
+    let tableEndIndex = -1;
+    
+    // 表の開始と終了を検出
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // ヘッダー行を検出（イン、アウトが含まれる行）
+      if (this.isTableHeaderRow(line)) {
+        tableStartIndex = i;
+        isInTable = true;
+        continue;
+      }
+      
+      // 表内の数字行を検出
+      if (isInTable && this.isTableDataRow(line)) {
+        tableEndIndex = i;
+        continue;
+      }
+      
+      // 表の終了を検出
+      if (isInTable && !this.isTableDataRow(line) && !this.isTableHeaderRow(line) && line.trim()) {
+        break;
+      }
+    }
+    
+    // 表の範囲が見つかった場合、その範囲を抽出
+    if (tableStartIndex >= 0) {
+      // ヘッダー行を追加
+      tableRows.push(lines[tableStartIndex]);
+      
+      // データ行を追加
+      for (let i = tableStartIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (this.isTableDataRow(line)) {
+          tableRows.push(line);
+        } else if (line.trim() === '') {
+          // 空行は表の終了の可能性が高い
+          break;
+        } else if (!this.isTimeData(line.trim())) {
+          // 時刻データでない行は表の終了
+          break;
+        }
+      }
+    }
+    
+    return tableRows;
+  }
+  
+  // 表のヘッダー行かどうかを判定
+  isTableHeaderRow(line) {
+    const trimmed = line.trim();
+    return (trimmed.includes('イン') && trimmed.includes('アウト')) ||
+           (trimmed.includes('出勤') && trimmed.includes('退勤'));
+  }
+  
+  // 表のデータ行かどうかを判定
+  isTableDataRow(line) {
+    const trimmed = line.trim();
+    // 数字で始まり、時刻パターンを含む行
+    return /^\d/.test(trimmed) && /\d{1,2}:\d{2}/.test(line);
+  }
+  
+  // 表の行かどうかを判定
+  isTableRow(line) {
+    return this.isTableHeaderRow(line) || this.isTableDataRow(line);
+  }
+  
+  // Gemini風の表形式で時刻エントリを抽出
+  extractTimeEntriesForTable(lines) {
+    const timePattern = /(\d{1,2}:\d{2})/g;
+    const timeEntries = [];
+    const allTimes = [];
+    
+    // 全ての時刻を抽出
+    lines.forEach(line => {
+      const matches = line.match(timePattern);
+      if (matches) {
+        matches.forEach(time => {
+          allTimes.push({
+            time: time,
+            context: line,
+            isStart: this.isStartTime(time, line),
+            isEnd: this.isEndTime(time, line)
+          });
+        });
+      }
+    });
+    
+    // 時刻をペアにして行を生成
+    let currentRow = ['', '', '', '', '', ''];
+    let rowIndex = 0;
+    
+    for (let i = 0; i < allTimes.length; i++) {
+      const timeData = allTimes[i];
+      const time = timeData.time;
+      
+      // 出勤時刻の判定
+      if (timeData.isStart || this.isLikelyStartTime(time)) {
+        // 空いている出勤時刻の列に配置
+        if (!currentRow[0]) {
+          currentRow[0] = time;
+        } else if (!currentRow[2]) {
+          currentRow[2] = time;
+        } else if (!currentRow[4]) {
+          currentRow[4] = time;
+        }
+      } 
+      // 退勤時刻の判定
+      else if (timeData.isEnd || this.isLikelyEndTime(time)) {
+        // 空いている退勤時刻の列に配置
+        if (currentRow[0] && !currentRow[1]) {
+          currentRow[1] = time;
+        } else if (currentRow[2] && !currentRow[3]) {
+          currentRow[3] = time;
+        } else if (currentRow[4] && !currentRow[5]) {
+          currentRow[5] = time;
+        } else if (!currentRow[1]) {
+          currentRow[1] = time;
+        } else if (!currentRow[3]) {
+          currentRow[3] = time;
+        } else if (!currentRow[5]) {
+          currentRow[5] = time;
+        }
+      }
+      
+      // 行が完成したら次の行へ
+      if (this.isRowComplete(currentRow) || i === allTimes.length - 1) {
+        const formattedRow = this.formatTableRow(currentRow);
+        if (formattedRow.trim()) {
+          timeEntries.push(formattedRow);
+        }
+        currentRow = ['', '', '', '', '', ''];
+      }
+    }
+    
+    return timeEntries;
+  }
+  
+  // 出勤時刻かどうかを判定
+  isStartTime(time, context) {
+    return context.includes('イン') || context.includes('出社') || 
+           /^0[6-9]:|^1[01]:/.test(time); // 6-11時は出勤時刻の可能性が高い
+  }
+  
+  // 退勤時刻かどうかを判定  
+  isEndTime(time, context) {
+    return context.includes('アウト') || context.includes('帰り') ||
+           /^1[7-9]:|^2[0-3]:/.test(time); // 17-23時は退勤時刻の可能性が高い
+  }
+  
+  // 出勤時刻らしいかどうかを判定
+  isLikelyStartTime(time) {
+    const [hour] = time.split(':').map(Number);
+    return hour >= 6 && hour <= 11;
+  }
+  
+  // 行が完成したかどうかを判定
+  isRowComplete(row) {
+    return (row[0] && row[1]) || (row[2] && row[3]) || (row[4] && row[5]);
+  }
+  
+  // 表の行をフォーマット
+  formatTableRow(row) {
+    const formatted = [];
+    for (let i = 0; i < 6; i++) {
+      if (row[i]) {
+        formatted.push(row[i].padEnd(8, ' '));
+      } else {
+        formatted.push('        ');
+      }
+    }
+    return formatted.join('').trimEnd();
   }
 }
 

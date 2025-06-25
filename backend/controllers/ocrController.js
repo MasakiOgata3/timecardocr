@@ -48,7 +48,8 @@ class OCRController {
 
       // 一時ファイルクリーンアップ（レスポンス後に実行）
       setTimeout(() => {
-        this.cleanupFiles([filePath, processedImagePath]).catch(console.error);
+        // ファイルクリーンアップは一時的に無効化
+        console.log('📁 ファイルクリーンアップスキップ');
       }, 1000);
 
       // レスポンス

@@ -24,9 +24,9 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS設定
+// CORS設定（すべてのオリジンを許可）
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5500'],
+  origin: true,
   credentials: true
 }));
 
@@ -132,8 +132,8 @@ app.use((req, res) => {
   }
 });
 
-// サーバー起動
-app.listen(PORT, () => {
+// サーバー起動（明示的に0.0.0.0でバインド）
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 サーバーが起動しました: http://localhost:${PORT}`);
   console.log(`📁 アップロードディレクトリ: ${uploadDir}`);
   console.log(`🌐 API エンドポイント: http://localhost:${PORT}/api`);
