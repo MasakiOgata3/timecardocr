@@ -35,7 +35,6 @@ class TimecardOCR {
     initializeEventListeners() {
         const fileInput = document.getElementById('fileInput');
         const uploadArea = document.getElementById('uploadArea');
-        const downloadCsv = document.getElementById('downloadCsv');
         const downloadExcel = document.getElementById('downloadExcel');
         const editForm = document.getElementById('editForm');
 
@@ -49,7 +48,6 @@ class TimecardOCR {
         uploadArea.addEventListener('click', () => fileInput.click());
 
         // ダウンロードボタン
-        downloadCsv.addEventListener('click', () => this.downloadFile('csv'));
         downloadExcel.addEventListener('click', () => this.downloadFile('excel'));
 
         // フォーム変更時の計算

@@ -86,7 +86,6 @@ app.get('/api/health', (req, res) => {
 app.post('/api/ocr', upload.single('image'), ocrController.processImage);
 
 // エクスポート API エンドポイント
-app.post('/api/export/csv', exportController.exportCSV);
 app.post('/api/export/excel', exportController.exportExcel);
 
 // エラーハンドリング
@@ -142,7 +141,6 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('📋 利用可能なエンドポイント:');
     console.log('  GET  /api/health         - ヘルスチェック');
     console.log('  POST /api/ocr            - OCR処理');
-    console.log('  POST /api/export/csv     - CSV出力');
     console.log('  POST /api/export/excel   - Excel出力');
   }
 });

@@ -1,44 +1,6 @@
-const csvService = require('../services/csvService');
 const excelService = require('../services/excelService');
 
 class ExportController {
-  async exportCSV(req, res) {
-    try {
-      const data = req.body;
-
-      // データ検証（直接実装）
-      const isValid = (data.formattedText && data.formattedText.trim() !== '') || 
-                     (data.employeeName && data.employeeName.trim() !== '');
-      
-      if (!isValid) {
-        return res.status(400).json({
-          error: '必須項目が入力されていません。'
-        });
-      }
-
-      console.log('📄 CSV出力処理を開始...');
-
-      // CSV生成
-      const csvBuffer = await csvService.generateCSV(data);
-
-      // レスポンスヘッダー設定
-      const filename = `timecard_${data.workDate || new Date().toISOString().split('T')[0]}.csv`;
-      res.set({
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': csvBuffer.length
-      });
-
-      console.log(`✅ CSV出力完了: ${filename}`);
-      res.send(csvBuffer);
-
-    } catch (error) {
-      console.error('❌ CSV出力エラー:', error);
-      res.status(500).json({
-        error: 'CSV出力中にエラーが発生しました。'
-      });
-    }
-  }
 
   async exportExcel(req, res) {
     try {
