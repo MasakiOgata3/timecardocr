@@ -157,6 +157,42 @@
     color: #721c24;
 }
 
+/* タイムカードテーブルスタイル */
+#timecardTable {
+    margin-bottom: 20px;
+}
+
+#timecardTable th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+#timecardTable td {
+    vertical-align: middle;
+    padding: 0.25rem;
+}
+
+#timecardTable input {
+    border: none;
+    background: transparent;
+    text-align: center;
+}
+
+#timecardTable input:focus {
+    outline: 2px solid #007bff;
+    background-color: #fff;
+}
+
+#timecardTable input[type="time"] {
+    width: 100%;
+}
+
+/* 行追加ボタン */
+#addRowBtn {
+    margin-bottom: 10px;
+}
+
 /* ダークモード対応（将来的な拡張用） */
 @media (prefers-color-scheme: dark) {
     body {

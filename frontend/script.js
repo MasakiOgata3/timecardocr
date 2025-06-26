@@ -49,16 +49,10 @@ class TimecardOCR {
 
         // ダウンロードボタン
         downloadExcel.addEventListener('click', () => this.downloadFile('excel'));
-
-        // フォーム変更時の計算
-        const startTime = document.getElementById('startTime');
-        const endTime = document.getElementById('endTime');
         
-        if (startTime && endTime) {
-            [startTime, endTime].forEach(element => {
-                element.addEventListener('change', () => this.calculateWorkHours());
-            });
-        }
+        // 表示切替ボタンは削除済み
+
+        // フォーム要素は削除済み
     }
 
     // ファイル選択処理
@@ -224,10 +218,7 @@ class TimecardOCR {
         };
         reader.readAsDataURL(this.currentFile);
 
-        // OCR結果表示
-        if (ocrResult) {
-            ocrResult.value = this.ocrData.rawText || '';
-        }
+        // OCR結果表示は不要なので削除
 
         // フォームにデータ設定
         this.populateForm();
@@ -242,13 +233,10 @@ class TimecardOCR {
         // 整理された文字起こし形式を表示
         if (data.formattedText) {
             document.getElementById('formattedText').value = data.formattedText;
+            // 表形式表示は不要なので削除
         }
         
-        // 従来形式（参考用）
-        document.getElementById('employeeName').value = data.employeeName || '';
-        document.getElementById('department').value = data.department || '';
-        document.getElementById('startTime').value = data.startTime || '';
-        document.getElementById('endTime').value = data.endTime || '';
+        // 従来形式は削除済みなのでスキップ
 
         this.calculateWorkHours();
     }
@@ -280,6 +268,129 @@ class TimecardOCR {
                 }
             }
         }
+    }
+
+    // 表示切替
+    toggleView() {
+        const tableContainer = document.getElementById('timecardTableContainer');
+        const textArea = document.getElementById('formattedText');
+        const toggleBtn = document.getElementById('toggleViewBtn');
+        
+        if (tableContainer.style.display === 'none') {
+            // テキストから表形式へ
+            tableContainer.style.display = 'block';
+            textArea.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-file-alt"></i> テキスト形式に切替';
+            
+            // 現在のテキストを解析して表に反映
+            if (textArea.value) {
+                this.parseAndDisplayTimecard(textArea.value);
+            }
+        } else {
+            // 表形式からテキストへ
+            tableContainer.style.display = 'none';
+            textArea.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-table"></i> 表形式に切替';
+            
+            // 表のデータをテキストに反映
+            this.updateTextFromTable();
+        }
+    }
+    
+    // 表のデータをテキストエリアに反映
+    updateTextFromTable() {
+        const tbody = document.getElementById('timecardTableBody');
+        const rows = tbody.querySelectorAll('tr');
+        let text = 'タイムカード\n\n';
+        let hasData = false;
+        
+        rows.forEach((row, index) => {
+            const inputs = row.querySelectorAll('input');
+            let dayData = '';
+            
+            // 3セットの出勤・退勤時刻をチェック
+            for (let i = 0; i < inputs.length; i += 2) {
+                const checkIn = inputs[i].value;
+                const checkOut = inputs[i + 1] ? inputs[i + 1].value : '';
+                if (checkIn || checkOut) {
+                    if (dayData) dayData += '  ';
+                    dayData += `${checkIn || ''}  ${checkOut || ''}`;
+                    hasData = true;
+                }
+            }
+            
+            if (dayData) {
+                text += `${index + 1}日  ${dayData}\n`;
+            }
+        });
+        
+        if (!hasData) {
+            text = 'タイムカード\n\n（データなし）';
+        }
+        
+        document.getElementById('formattedText').value = text;
+    }
+
+    // タイムカードデータを解析して表形式で表示
+    parseAndDisplayTimecard(formattedText) {
+        const lines = formattedText.split('\n');
+        const tbody = document.getElementById('timecardTableBody');
+        const tableContainer = document.getElementById('timecardTableContainer');
+        const textArea = document.getElementById('formattedText');
+        
+        tbody.innerHTML = ''; // 既存の行をクリア
+        
+        // 15日分のデータを初期化
+        const monthData = {};
+        for (let i = 1; i <= 15; i++) {
+            monthData[i] = { checkIn: '', checkOut: '' };
+        }
+        
+        // 時刻パターンを検索（例: 08:14   17:34）
+        const timePattern = /\b(\d{1,2}:\d{2})\s+(?:(\d{1,2}:\d{2}))?/g;
+        let currentDay = 1;
+        
+        lines.forEach(line => {
+            const matches = [...line.matchAll(timePattern)];
+            if (matches.length > 0) {
+                matches.forEach(match => {
+                    if (match[1] && currentDay <= 15) {
+                        monthData[currentDay] = {
+                            checkIn: match[1],
+                            checkOut: match[2] || ''
+                        };
+                        currentDay++;
+                    }
+                });
+            }
+        });
+        
+        // 15日分の行を作成
+        for (let day = 1; day <= 15; day++) {
+            const data = monthData[day];
+            const row = this.createTableRow(day, data.checkIn, data.checkOut);
+            tbody.appendChild(row);
+        }
+        
+        // 行追加ボタンを非表示にする（15日固定なので不要）
+        const addRowBtn = document.getElementById('addRowBtn');
+        if (addRowBtn) {
+            addRowBtn.style.display = 'none';
+        }
+    }
+    
+    // テーブル行を作成
+    createTableRow(day, checkIn, checkOut) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="time" class="form-control form-control-sm text-center" value="${checkIn}" /></td>
+            <td><input type="time" class="form-control form-control-sm text-center" value="${checkOut}" /></td>
+            <td><input type="time" class="form-control form-control-sm text-center" value="" /></td>
+            <td><input type="time" class="form-control form-control-sm text-center" value="" /></td>
+            <td><input type="time" class="form-control form-control-sm text-center" value="" /></td>
+            <td><input type="time" class="form-control form-control-sm text-center" value="" /></td>
+        `;
+        return row;
     }
 
     // 結果セクション表示
@@ -341,10 +452,11 @@ class TimecardOCR {
     getFormData() {
         return {
             formattedText: document.getElementById('formattedText').value,
-            employeeName: document.getElementById('employeeName').value,
-            department: document.getElementById('department').value,
-            startTime: document.getElementById('startTime').value,
-            endTime: document.getElementById('endTime').value,
+            // 従来フォームは削除したので、OCRデータから取得
+            employeeName: this.ocrData?.structured?.employeeName || '',
+            department: this.ocrData?.structured?.department || '',
+            startTime: this.ocrData?.structured?.startTime || '',
+            endTime: this.ocrData?.structured?.endTime || '',
             // レガシーフィールド（互換性のため）
             employeeId: '',
             workDate: '',

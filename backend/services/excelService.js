@@ -51,40 +51,53 @@ class ExcelService {
   // ヘッダー設定
   setupHeader(worksheet, data) {
     // タイトル
-    worksheet.mergeCells('A1:H1');
+    worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'タイムカード';
     titleCell.font = { 
-      size: 18, 
+      size: 16, 
       bold: true, 
-      color: { argb: 'FF000080' } 
+      color: { argb: 'FF0000FF' } 
     };
     titleCell.alignment = { 
       horizontal: 'center', 
       vertical: 'middle' 
     };
-    titleCell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFF0F8FF' }
-    };
 
     // 作成日時
-    worksheet.mergeCells('A2:H2');
+    worksheet.mergeCells('A2:D2');
     const dateCell = worksheet.getCell('A2');
-    dateCell.value = `作成日時: ${new Date().toLocaleString('ja-JP')}`;
+    const currentDate = new Date();
+    dateCell.value = `作成日時: ${currentDate.getFullYear()}/${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getDate().toString().padStart(2, '0')} ${currentDate.getHours().toString().padStart(2, '0')}:${currentDate.getMinutes().toString().padStart(2, '0')}`;
     dateCell.font = { size: 10, italic: true };
     dateCell.alignment = { horizontal: 'right' };
 
-    // 空行
-    worksheet.getRow(3).height = 10;
+    // 会社名
+    const companyCell = worksheet.getCell('A3');
+    companyCell.value = '会社名';
+    companyCell.font = { bold: true };
+    companyCell.alignment = { horizontal: 'left', vertical: 'middle' };
+    
+    const companyValueCell = worksheet.getCell('B3');
+    companyValueCell.value = data.department || '';
+    companyValueCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    // 氏名
+    const nameCell = worksheet.getCell('A4');
+    nameCell.value = '氏名';
+    nameCell.font = { bold: true };
+    nameCell.alignment = { horizontal: 'left', vertical: 'middle' };
+    
+    const nameValueCell = worksheet.getCell('B4');
+    nameValueCell.value = data.employeeName || '';
+    nameValueCell.alignment = { horizontal: 'left', vertical: 'middle' };
 
     // データヘッダー
     const headers = [
-      'イン', 'アウト', '', '', '', '', '', ''
+      'イン', 'アウト', '休憩', '1日の労働時間'
     ];
     
-    const headerRow = worksheet.getRow(4);
+    const headerRow = worksheet.getRow(6);
     headers.forEach((header, index) => {
       const cell = headerRow.getCell(index + 1);
       cell.value = header;
@@ -95,75 +108,129 @@ class ExcelService {
         fgColor: { argb: 'FF4472C4' }
       };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
     });
   }
 
   // データ行設定
   setupDataRows(worksheet, data) {
-    // 文字起こし内容をそのままExcelに転記
+    const timeData = [];
+    
+    // 文字起こし内容から時刻データを抽出
     if (data.formattedText && data.formattedText.trim()) {
       const lines = data.formattedText.split('\n');
       
-      lines.forEach((line, index) => {
-        const rowIndex = index + 5; // 5行目から開始
-        
+      lines.forEach((line) => {
         // 時刻パターンを検出（例：08:14   17:34）
         const timePattern = /(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})/;
         const match = line.match(timePattern);
         
         if (match) {
-          // イン時刻（A列）
-          const inCell = worksheet.getCell(`A${rowIndex}`);
-          inCell.value = match[1];
-          inCell.font = { name: 'Consolas', size: 11 };
-          inCell.alignment = { horizontal: 'center', vertical: 'middle' };
-          
-          // アウト時刻（B列）
-          const outCell = worksheet.getCell(`B${rowIndex}`);
-          outCell.value = match[2];
-          outCell.font = { name: 'Consolas', size: 11 };
-          outCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        } else {
-          // 単一時刻パターンを検出
-          const singleTimePattern = /^(\d{1,2}:\d{2})$/;
-          const singleMatch = line.trim().match(singleTimePattern);
-          
-          if (singleMatch) {
-            // 単一時刻はA列に配置
-            const cell = worksheet.getCell(`A${rowIndex}`);
-            cell.value = singleMatch[1];
-            cell.font = { name: 'Consolas', size: 11 };
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          } else if (line.trim() !== '') {
-            // その他のテキスト（A列に配置、空行は除く）
-            const cell = worksheet.getCell(`A${rowIndex}`);
-            cell.value = line;
-            cell.font = { name: 'Consolas', size: 11 };
-            cell.alignment = { horizontal: 'left', vertical: 'top' };
-          }
+          timeData.push({
+            inTime: match[1],
+            outTime: match[2]
+          });
         }
-        
-        // 行の高さを調整
-        worksheet.getRow(rowIndex).height = 18;
-      });
-      
-    } else {
-      // 従来形式
-      const dataRows = [
-        ['社員番号', data.employeeId || ''],
-        ['氏名', data.employeeName || ''],
-        ['部署', data.department || ''],
-        ['勤務日', data.workDate || ''],
-        ['出勤時刻', data.startTime || ''],
-        ['退勤時刻', data.endTime || ''],
-        ['休憩時間', data.breakTime ? `${data.breakTime}分` : ''],
-        ['実働時間', data.workHours || '']
-      ];
-      
-      dataRows.forEach((rowData, index) => {
-        this.setupDataRow(worksheet, rowData, index + 5);
       });
     }
+    
+    // データ行を作成
+    let rowIndex = 7;
+    let totalMinutes = 0;
+    
+    timeData.forEach((data) => {
+      const row = worksheet.getRow(rowIndex);
+      
+      // イン時刻（A列）
+      const inCell = row.getCell(1);
+      inCell.value = data.inTime;
+      inCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      inCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      
+      // アウト時刻（B列）
+      const outCell = row.getCell(2);
+      outCell.value = data.outTime;
+      outCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      outCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      
+      // 休憩時間（C列）- 固定1時間
+      const breakCell = row.getCell(3);
+      breakCell.value = '1:00';
+      breakCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      breakCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      
+      // 1日の労働時間を計算（D列）
+      const workMinutes = this.calculateWorkingHours(data.inTime, data.outTime, 60);
+      totalMinutes += workMinutes;
+      
+      const workCell = row.getCell(4);
+      workCell.value = this.formatMinutesToTime(workMinutes);
+      workCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      workCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      
+      rowIndex++;
+    });
+    
+    // 空白行
+    rowIndex++;
+    
+    // 労働時間合計行
+    const totalRow = worksheet.getRow(rowIndex);
+    
+    // 「労働時間合計」ラベル（B,C列を結合）
+    worksheet.mergeCells(`B${rowIndex}:C${rowIndex}`);
+    const labelCell = totalRow.getCell(2);
+    labelCell.value = '労働時間合計';
+    labelCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    labelCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' }
+    };
+    labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    labelCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+    
+    // 合計時間（D列）
+    const totalCell = totalRow.getCell(4);
+    totalCell.value = this.formatMinutesToTime(totalMinutes);
+    totalCell.font = { bold: true };
+    totalCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    totalCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
   }
   
   // 個別データ行設定のヘルパーメソッド
@@ -198,42 +265,63 @@ class ExcelService {
     row.height = 25;
   }
 
+  // 労働時間計算（分単位）
+  calculateWorkingHours(inTime, outTime, breakMinutes = 60) {
+    try {
+      console.log(`⏰ 労働時間計算: ${inTime} - ${outTime} (休憩: ${breakMinutes}分)`);
+      
+      const [inHour, inMin] = inTime.split(':').map(Number);
+      const [outHour, outMin] = outTime.split(':').map(Number);
+      
+      const inMinutes = inHour * 60 + inMin;
+      const outMinutes = outHour * 60 + outMin;
+      
+      console.log(`📊 分換算: イン=${inMinutes}分, アウト=${outMinutes}分`);
+      
+      let workMinutes = outMinutes - inMinutes;
+      if (workMinutes < 0) {
+        // 日跨ぎの場合
+        workMinutes += 24 * 60;
+        console.log(`🌙 日跨ぎ処理: ${workMinutes}分`);
+      }
+      
+      // 休憩時間を引く
+      workMinutes -= breakMinutes;
+      console.log(`⏱️ 休憩時間差引後: ${workMinutes}分`);
+      
+      const result = Math.max(0, workMinutes);
+      console.log(`✅ 最終労働時間: ${result}分 (${this.formatMinutesToTime(result)})`);
+      
+      return result;
+    } catch (error) {
+      console.error('時間計算エラー:', error);
+      return 0;
+    }
+  }
+  
+  // 分を時:分形式に変換
+  formatMinutesToTime(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}:${mins.toString().padStart(2, '0')}`;
+  }
+
   // スタイル適用
   applyStyles(worksheet) {
     // 列幅設定
     const columnWidths = [
-      { column: 1, width: 15 }, // 項目
-      { column: 2, width: 20 }, // 内容
-      { column: 3, width: 10 },
-      { column: 4, width: 10 },
-      { column: 5, width: 10 },
-      { column: 6, width: 10 },
-      { column: 7, width: 10 },
-      { column: 8, width: 10 }
+      { column: 1, width: 12 }, // イン
+      { column: 2, width: 12 }, // アウト
+      { column: 3, width: 12 }, // 休憩
+      { column: 4, width: 18 }  // 1日の労働時間
     ];
 
     columnWidths.forEach(({ column, width }) => {
       worksheet.getColumn(column).width = width;
     });
 
-    // 全体のボーダー設定
-    const dataRange = worksheet.getCell('A1').address + ':' + worksheet.getCell('H' + (worksheet.rowCount)).address;
-    
-    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
-      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        if (rowNumber >= 4 && rowNumber <= worksheet.rowCount) {
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
-        }
-      });
-    });
-
     // 印刷設定
-    worksheet.pageSetup.printArea = 'A1:H' + worksheet.rowCount;
+    worksheet.pageSetup.printArea = 'A1:D' + worksheet.rowCount;
     worksheet.pageSetup.fitToPage = true;
     worksheet.pageSetup.fitToHeight = 1;
     worksheet.pageSetup.fitToWidth = 1;

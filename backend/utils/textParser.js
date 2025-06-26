@@ -81,37 +81,56 @@ class TextParser {
 
   // 氏名抽出
   extractEmployeeName(lines, result) {
+    // 除外する単語リスト（氏名ではない単語）
+    const excludedWords = ['カード', 'タイム', 'TIME', 'CARD', '前半', '後半', '年月', '分'];
+    
     const patterns = [
       /(?:氏名|名前|社員名|職員名)[\s:：]*([ぁ-ゟ一-龯ァ-ヾA-Za-z\s]+)/,
-      /([ぁ-ゟ一-龯ァ-ヾ]{2,10})\s*(?:様|さん|氏)?$/,
       /Name[\s:：]*([A-Za-zぁ-ゟ一-龯ァ-ヾ\s]+)/i
     ];
 
-    // 氏名ラベルの次の行をチェック
+    // 氏名ラベルの次の行をチェック（優先）
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
       // 氏名ラベルを発見した場合、次の行をチェック
       if (/^(?:氏名|名前|社員名|職員名)$/.test(line.trim()) && i + 1 < lines.length) {
         const nextLine = lines[i + 1].trim();
-        if (/^[ぁ-ゟ一-龯ァ-ヾ\s]{2,20}$/.test(nextLine)) {
+        if (/^[ぁ-ゟ一-龯ァ-ヾ\s]{2,20}$/.test(nextLine) && !excludedWords.includes(nextLine)) {
           result.employeeName = nextLine;
           console.log(`👤 氏名検出（次行パターン）: ${result.employeeName}`);
           return;
         }
       }
+    }
+    
+    // 通常のパターンマッチング
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       
-      // 通常のパターンマッチング
       for (const pattern of patterns) {
         const match = line.match(pattern);
         if (match && match[1]) {
           const name = match[1].trim().replace(/様|さん|氏$/g, '');
-          if (name.length >= 2 && name.length <= 20) {
+          if (name.length >= 2 && name.length <= 20 && !excludedWords.some(word => name.includes(word))) {
             result.employeeName = name;
-            console.log(`👤 氏名検出: ${result.employeeName}`);
+            console.log(`👤 氏名検出（パターンマッチ）: ${result.employeeName}`);
             return;
           }
         }
+      }
+    }
+    
+    // より厳格な日本人名パターン（姓+名の組み合わせ）
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      // 2-4文字の姓 + 2-4文字の名前のパターン
+      if (/^[ぁ-ゟ一-龯ァ-ヾ]{2,4}[ぁ-ゟ一-龯ァ-ヾ]{2,4}$/.test(line) && 
+          !excludedWords.includes(line) &&
+          line.length >= 4 && line.length <= 8) {
+        result.employeeName = line;
+        console.log(`👤 氏名検出（日本人名パターン）: ${result.employeeName}`);
+        return;
       }
     }
   }
@@ -385,24 +404,23 @@ class TextParser {
     let formatted = '';
     
     // タイトル
-    formatted += 'タイムカード\n';
+    formatted += 'タイムカード';
     if (parsedData.workDate) {
-      formatted += `${parsedData.workDate}分\n`;
+      formatted += `  ${parsedData.workDate}分\n`;
     } else {
-      formatted += '前半　月分\n';
+      formatted += '\n';
     }
-    formatted += 'TIME CARD\n\n';
     
     // 基本情報
     if (parsedData.employeeName) {
-      formatted += `氏名\n${parsedData.employeeName}\n\n`;
+      formatted += `氏名: ${parsedData.employeeName}\n`;
     }
     if (parsedData.department) {
-      formatted += `所属\n${parsedData.department}\n\n`;
+      formatted += `部署: ${parsedData.department}\n`;
     }
     
-    // ヘッダー行
-    formatted += 'イン　　アウト　イン　　アウト　イン　　アウト\n\n';
+    // 時刻データの前に改行
+    formatted += '\n';
     
     // 勤務時間データを抽出してフォーマット
     const timeEntries = this.extractTimeEntriesForTable(lines);
@@ -411,6 +429,21 @@ class TextParser {
     });
     
     return formatted;
+  }
+  
+  // シンプルな時刻エントリを抽出（左右並び用）
+  extractSimpleTimeEntries(lines) {
+    const timeEntries = [];
+    const timePattern = /(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})/;
+    
+    lines.forEach(line => {
+      const match = line.match(timePattern);
+      if (match) {
+        timeEntries.push(`${match[1]}   ${match[2]}`);
+      }
+    });
+    
+    return timeEntries;
   }
   
   // 勤務時間エントリを抽出

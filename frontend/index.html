@@ -84,53 +84,18 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <h6>アップロードした画像</h6>
-                                <img id="uploadedImage" src="" alt="アップロード画像" class="img-fluid border rounded">
+                                <img id="uploadedImage" src="" alt="アップロード画像" class="img-fluid border rounded" style="max-height: 350px; width: 100%; object-fit: contain;">
                             </div>
                             <div class="col-md-6">
-                                <h6>認識されたテキスト</h6>
-                                <textarea id="ocrResult" class="form-control" rows="10" placeholder="OCR結果がここに表示されます"></textarea>
+                                <h6>読み取り結果（編集可能）</h6>
+                                <form id="editForm">
+                                    <textarea id="formattedText" class="form-control" rows="15" placeholder="OCRで読み取った時刻データがここに表示されます。編集可能です。"></textarea>
+                                    <small class="form-text text-muted">
+                                        必要に応じて時刻を修正してください。
+                                    </small>
+                                </form>
                             </div>
                         </div>
-                        <hr>
-                        <h6>整理された文字起こし（編集可能）</h6>
-                        <form id="editForm">
-                            <div class="row">
-                                <div class="col-12">
-                                    <label for="formattedText" class="form-label">文字起こし内容</label>
-                                    <textarea id="formattedText" class="form-control" rows="15" placeholder="整理された文字起こし内容がここに表示されます。編集可能です。"></textarea>
-                                    <small class="form-text text-muted">
-                                        この内容を編集して、より正確な情報に修正してください。
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    <h6>従来形式（参考用）</h6>
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <label for="employeeName" class="form-label">氏名</label>
-                                            <input type="text" class="form-control" id="employeeName" placeholder="山田太郎">
-                                        </div>
-                                        <div class="col-6">
-                                            <label for="department" class="form-label">部署</label>
-                                            <input type="text" class="form-control" id="department" placeholder="営業部">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <label for="startTime" class="form-label">出勤時刻</label>
-                                            <input type="time" class="form-control" id="startTime">
-                                        </div>
-                                        <div class="col-6">
-                                            <label for="endTime" class="form-label">退勤時刻</label>
-                                            <input type="time" class="form-control" id="endTime">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </form>
                     </div>
                 </div>
             </div>
