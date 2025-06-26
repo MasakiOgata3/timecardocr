@@ -2,7 +2,7 @@
 
 class TimecardOCR {
     constructor() {
-        this.apiBaseUrl = 'http://localhost:3000/api';
+        this.apiBaseUrl = 'http://localhost:8080/api';
         this.currentFile = null;
         this.ocrData = null;
         
