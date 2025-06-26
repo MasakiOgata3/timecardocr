@@ -15,16 +15,11 @@ class TimecardOCR {
     resetUI() {
         // 結果セクションを強制的に非表示
         const resultSection = document.getElementById('resultSection');
-        const downloadSection = document.getElementById('downloadSection');
         const progressSection = document.getElementById('progressSection');
         
         if (resultSection) {
             resultSection.style.display = 'none';
             resultSection.classList.remove('fade-in');
-        }
-        if (downloadSection) {
-            downloadSection.style.display = 'none';
-            downloadSection.classList.remove('fade-in');
         }
         if (progressSection) {
             progressSection.style.display = 'none';
@@ -35,7 +30,6 @@ class TimecardOCR {
     initializeEventListeners() {
         const fileInput = document.getElementById('fileInput');
         const uploadArea = document.getElementById('uploadArea');
-        const downloadExcel = document.getElementById('downloadExcel');
         const editForm = document.getElementById('editForm');
 
         // ファイル選択
@@ -47,12 +41,11 @@ class TimecardOCR {
         uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
         uploadArea.addEventListener('click', () => fileInput.click());
 
-        // ダウンロードボタン
-        downloadExcel.addEventListener('click', () => this.downloadFile('excel'));
-        
-        // 表示切替ボタンは削除済み
-
-        // フォーム要素は削除済み
+        // ダウンロードボタン（結果画面のアイコン）
+        const downloadExcelResults = document.getElementById('downloadExcelResults');
+        if (downloadExcelResults) {
+            downloadExcelResults.addEventListener('click', () => this.downloadFile('excel'));
+        }
     }
 
     // ファイル選択処理
@@ -96,6 +89,7 @@ class TimecardOCR {
             return;
         }
 
+        console.log('ファイル処理開始:', file.name);
         this.currentFile = file;
         
         // UI更新
@@ -109,32 +103,39 @@ class TimecardOCR {
 
             this.updateProgress(30, 'OCR処理を開始中...');
 
+            console.log('API呼び出し開始:', `${this.apiBaseUrl}/ocr`);
             // API呼び出し
             const response = await fetch(`${this.apiBaseUrl}/ocr`, {
                 method: 'POST',
                 body: formData
             });
             
+            console.log('API レスポンス:', response.status, response.ok);
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
+            console.log('API データ:', data);
 
             this.updateProgress(80, 'OCR結果を処理中...');
 
             // 結果処理
             if (data && data.success) {
+                console.log('OCR成功、結果表示準備中');
                 this.ocrData = data;
                 this.displayResults();
                 
                 this.updateProgress(100, '処理完了！');
                 
                 setTimeout(() => {
+                    console.log('結果表示実行');
                     this.hideProgress();
                     this.showResults();
                 }, 1000);
             } else {
+                console.error('OCR処理失敗:', data);
                 throw new Error('OCR処理に失敗しました。');
             }
 
@@ -159,7 +160,7 @@ class TimecardOCR {
             } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK') {
                 this.showError('ネットワークエラーが発生しました。サーバーが起動していることを確認してください。');
             } else if (error.message.includes('Network Error') || error.message.includes('fetch')) {
-                this.showError('サーバーに接続できません。バックエンドサーバー (http://localhost:3000) が起動していることを確認してください。');
+                this.showError('サーバーに接続できません。バックエンドサーバー (http://localhost:8080) が起動していることを確認してください。');
             } else {
                 this.showError(`OCR処理中にエラーが発生しました: ${error.message || 'もう一度お試しください。'}`);
             }
@@ -188,17 +189,23 @@ class TimecardOCR {
     showProgress() {
         document.getElementById('progressSection').style.display = 'block';
         document.getElementById('resultSection').style.display = 'none';
-        document.getElementById('downloadSection').style.display = 'none';
     }
 
     // プログレス更新
     updateProgress(percentage, text) {
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
+        const progressPercentage = document.querySelector('.progress-percentage');
         
-        progressBar.style.width = `${percentage}%`;
-        progressBar.textContent = `${Math.round(percentage)}%`;
-        progressText.textContent = text;
+        if (progressBar) {
+            progressBar.style.width = `${percentage}%`;
+        }
+        if (progressPercentage) {
+            progressPercentage.textContent = `${Math.round(percentage)}%`;
+        }
+        if (progressText) {
+            progressText.textContent = text;
+        }
     }
 
     // プログレス非表示
@@ -396,16 +403,10 @@ class TimecardOCR {
     // 結果セクション表示
     showResults() {
         const resultSection = document.getElementById('resultSection');
-        const downloadSection = document.getElementById('downloadSection');
         
         if (resultSection) {
             resultSection.style.display = 'block';
             resultSection.classList.add('fade-in');
-        }
-        
-        if (downloadSection) {
-            downloadSection.style.display = 'block';
-            downloadSection.classList.add('fade-in');
         }
     }
 

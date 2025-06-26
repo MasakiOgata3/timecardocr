@@ -11,7 +11,7 @@ const ocrController = require('./controllers/ocrController');
 const exportController = require('./controllers/exportController');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // セキュリティミドルウェア
 app.use(helmet());
