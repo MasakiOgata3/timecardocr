@@ -3,9 +3,16 @@
 class TimecardOCR {
     constructor() {
         // 本番環境のURLを自動検出
-        this.apiBaseUrl = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8080/api'
-            : '/api';
+        // GitHub Pagesの場合は別のバックエンドURLを使用
+        if (window.location.hostname === 'masakiogata3.github.io') {
+            // GitHub Pagesからは外部APIサーバーを使用する必要があります
+            this.apiBaseUrl = 'https://timecardocr.onrender.com/api'; // RenderにデプロイしたバックエンドURL
+            // アラートを削除（正しいURLが設定されたため）
+        } else if (window.location.hostname === 'localhost') {
+            this.apiBaseUrl = 'http://localhost:8080/api';
+        } else {
+            this.apiBaseUrl = '/api';
+        }
         this.currentFile = null;
         this.ocrData = null;
         
