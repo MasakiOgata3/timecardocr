@@ -42,6 +42,12 @@ class TimecardOCR {
         const uploadArea = document.getElementById('uploadArea');
         const editForm = document.getElementById('editForm');
 
+        // 要素の存在確認
+        if (!fileInput || !uploadArea) {
+            console.error('必要なDOM要素が見つかりません');
+            return;
+        }
+
         // ファイル選択
         fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
 
